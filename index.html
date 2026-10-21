@@ -52,9 +52,10 @@
 </main>
 <script>
 (() => {
-  // Lemon Squeezy's purchase confirmation links here with the license key in the URL fragment (#p=…&k=…). A fragment
-  // is never sent to the server, so the key stays in this browser. The page hands it to the extension, which checks
-  // it with Lemon Squeezy itself; nothing is stored or sent anywhere else.
+  // Lemon Squeezy's purchase confirmation links here with the license key: ?p=…&k=… (Lemon Squeezy's link field
+  // rejects its [license_key] variable inside a #fragment, so the query string is what it can send; #p=…&k=… is read
+  // too). The page hands the key to the extension, which checks it with Lemon Squeezy itself; this page stores nothing
+  // and sends it nowhere else, and it removes the key from the address bar at once.
   const PRODUCTS = {
     epub: { name: 'EPUB Reader', chrome: 'pjcpofjnipephagoflgpiolglanmlhch', edge: 'jhfaepeagjmmladgigjhiggkbddaackj',
       chromeStore: 'https://chromewebstore.google.com/detail/pjcpofjnipephagoflgpiolglanmlhch', edgeStore: 'https://microsoftedge.microsoft.com/addons/detail/jhfaepeagjmmladgigjhiggkbddaackj' },
@@ -62,7 +63,8 @@
       chromeStore: 'https://chromewebstore.google.com/detail/baonceijechidhmmmbhmcebmfofpgdcl', edgeStore: 'https://microsoftedge.microsoft.com/addons/detail/imnkmnhbknaafglgabagianabnbbakcf' },
   };
   const $ = id => document.getElementById(id);
-  const params = new URLSearchParams(location.hash.slice(1));
+  const fromHash = new URLSearchParams(location.hash.slice(1));
+  const params = fromHash.get('k') ? fromHash : new URLSearchParams(location.search);
   const productKey = params.get('p'), key = (params.get('k') || '').trim();
   // drop the key from the address bar and this history entry as soon as it has been read
   try { history.replaceState(null, '', location.pathname); } catch (e) {}
