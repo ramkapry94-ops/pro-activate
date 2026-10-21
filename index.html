@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<meta name="robots" content="noindex">
+<title>Activate Pro</title>
+<style>
+  :root { --bg: #f6f5f2; --card: #ffffff; --ink: #1f2328; --muted: #5f6670; --line: #e3e1dc; --ok: #1f7a3d; --err: #b42318; --btn: #2f5bd3; --btn-ink: #fff; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #16181c; --card: #1f2227; --ink: #e8eaed; --muted: #a3a9b1; --line: #33373e; --ok: #4cc27a; --err: #f07167; --btn: #5b82f0; } }
+  * { box-sizing: border-box; }
+  body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 16px; background: var(--bg); color: var(--ink);
+    font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+  .card { width: 100%; max-width: 460px; background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 28px 26px; box-shadow: 0 6px 24px rgba(0,0,0,.06); }
+  h1 { font-size: 21px; margin: 0 0 8px; }
+  p { margin: 8px 0; color: var(--muted); }
+  .ok h1 { color: var(--ok); } .err h1 { color: var(--err); }
+  .spinner { width: 22px; height: 22px; border: 3px solid var(--line); border-top-color: var(--btn); border-radius: 50%; animation: spin .8s linear infinite; margin-bottom: 12px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .key { display: flex; gap: 8px; margin: 14px 0 6px; }
+  .key input { flex: 1; min-width: 0; font: 14px ui-monospace, Consolas, monospace; padding: 9px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--ink); }
+  button, a.btn { font: inherit; font-size: 15px; border: 0; border-radius: 8px; padding: 9px 14px; background: var(--btn); color: var(--btn-ink); cursor: pointer; text-decoration: none; display: inline-block; }
+  ol { color: var(--muted); padding-left: 20px; margin: 8px 0; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<main class="card" id="card">
+  <div id="working">
+    <div class="spinner"></div>
+    <h1>Activating Pro…</h1>
+    <p>Talking to the extension in this browser.</p>
+  </div>
+  <div id="done" hidden>
+    <h1>Pro is active</h1>
+    <p id="doneText"></p>
+  </div>
+  <div id="failed" hidden>
+    <h1 id="failTitle">Could not activate automatically</h1>
+    <p id="failText"></p>
+    <div id="keyBox" class="key" hidden>
+      <input id="key" readonly aria-label="License key">
+      <button id="copy" type="button">Copy</button>
+    </div>
+    <ol id="manual" hidden>
+      <li>Open the extension and go to its <b>Pro</b> section.</li>
+      <li>Paste the key into "Already bought? Paste your license key" and press Activate.</li>
+    </ol>
+    <p id="storeLine" hidden><a class="btn" id="storeLink" href="#" target="_blank" rel="noopener">Install the extension</a></p>
+  </div>
+</main>
+<script>
+(() => {
+  // Lemon Squeezy's purchase confirmation links here with the license key in the URL fragment (#p=…&k=…). A fragment
+  // is never sent to the server, so the key stays in this browser. The page hands it to the extension, which checks
+  // it with Lemon Squeezy itself; nothing is stored or sent anywhere else.
+  const PRODUCTS = {
+    epub: { name: 'EPUB Reader', chrome: 'pjcpofjnipephagoflgpiolglanmlhch', edge: 'jhfaepeagjmmladgigjhiggkbddaackj',
+      chromeStore: 'https://chromewebstore.google.com/detail/pjcpofjnipephagoflgpiolglanmlhch', edgeStore: 'https://microsoftedge.microsoft.com/addons/detail/jhfaepeagjmmladgigjhiggkbddaackj' },
+    autofill: { name: 'Form Autofill', chrome: 'baonceijechidhmmmbhmcebmfofpgdcl', edge: 'imnkmnhbknaafglgabagianabnbbakcf',
+      chromeStore: 'https://chromewebstore.google.com/detail/baonceijechidhmmmbhmcebmfofpgdcl', edgeStore: 'https://microsoftedge.microsoft.com/addons/detail/imnkmnhbknaafglgabagianabnbbakcf' },
+  };
+  const $ = id => document.getElementById(id);
+  const params = new URLSearchParams(location.hash.slice(1));
+  const productKey = params.get('p'), key = (params.get('k') || '').trim();
+  // drop the key from the address bar and this history entry as soon as it has been read
+  try { history.replaceState(null, '', location.pathname); } catch (e) {}
+
+  const product = PRODUCTS[productKey];
+  const isEdge = !!(navigator.userAgentData && navigator.userAgentData.brands && navigator.userAgentData.brands.some(b => /Microsoft Edge/.test(b.brand))) || /Edg\//.test(navigator.userAgent);
+
+  function show(id) { ['working', 'done', 'failed'].forEach(x => { $(x).hidden = x !== id; }); }
+  function fail(title, text, opts) {
+    opts = opts || {};
+    $('failTitle').textContent = title; $('failText').textContent = text;
+    if (opts.showKey && key) { $('key').value = key; $('keyBox').hidden = false; $('manual').hidden = false; }
+    if (opts.store && product) { $('storeLink').href = isEdge ? product.edgeStore : product.chromeStore; $('storeLine').hidden = false; }
+    show('failed');
+  }
+  $('copy').addEventListener('click', async () => {
+    try { await navigator.clipboard.writeText(key); } catch (e) { $('key').select(); document.execCommand('copy'); }
+    $('copy').textContent = 'Copied';
+  });
+
+  if (!product || !/^[A-Za-z0-9-]{16,64}$/.test(key)) {
+    fail('This link is incomplete', 'Open the purchase confirmation again, or paste the license key from your Lemon Squeezy receipt email into the extension.', { showKey: true });
+    return;
+  }
+  const runtime = window.chrome && window.chrome.runtime;
+  if (!runtime || !runtime.sendMessage) {
+    fail(product.name + ' was not found in this browser',
+      'Open this page in the browser where ' + product.name + ' is installed, or install it first. You can also paste this key into the extension yourself:', { showKey: true, store: true });
+    return;
+  }
+  const ids = isEdge ? [product.edge, product.chrome] : [product.chrome, product.edge];
+  const send = id => new Promise(resolve => {
+    let settled = false;
+    const t = setTimeout(() => { if (!settled) { settled = true; resolve({ ok: false, error: 'timeout' }); } }, 15000);
+    try {
+      runtime.sendMessage(id, { type: 'activate-license', product: productKey, key }, res => {
+        if (settled) return; settled = true; clearTimeout(t);
+        if (runtime.lastError || !res) resolve({ ok: false, error: 'unreachable' }); else resolve(res);
+      });
+    } catch (e) { settled = true; clearTimeout(t); resolve({ ok: false, error: 'unreachable' }); }
+  });
+  (async () => {
+    let res = await send(ids[0]);
+    if (!res.ok && res.error === 'unreachable') res = await send(ids[1]);
+    if (res.ok) {
+      $('doneText').textContent = 'Pro is now on in ' + product.name + '. You can close this tab.';
+      $('card').className = 'card ok'; show('done'); return;
+    }
+    $('card').className = 'card err';
+    const msg = {
+      unreachable: [product.name + ' was not found in this browser', 'Open this page in the browser where ' + product.name + ' is installed, or install it first. You can also paste this key into the extension yourself:', { showKey: true, store: true }],
+      invalid: ['This key was not accepted', 'Lemon Squeezy did not accept this key. If you just paid, wait a minute and reload, or contact the seller from your receipt email.', { showKey: true }],
+      limit: ['This key is already active on its maximum number of browsers', 'Remove it from a browser you no longer use (Pro section, Remove license), then try again.', { showKey: true }],
+      network: ['Could not reach Lemon Squeezy', 'Check the connection and reload this page, or paste the key into the extension yourself:', { showKey: true }],
+      timeout: ['The extension did not answer', 'Reload this page, or paste the key into the extension yourself:', { showKey: true }],
+    }[res.error] || ['Could not activate automatically', 'Paste this key into the extension yourself:', { showKey: true }];
+    fail(msg[0], msg[1], msg[2]);
+  })();
+})();
+</script>
+</body>
+</html>
